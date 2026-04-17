@@ -1,0 +1,8 @@
+dhanhq
+supabase
+discord-webhook
+pandas
+numpy
+python-dotenv
+schedule
+pytz
