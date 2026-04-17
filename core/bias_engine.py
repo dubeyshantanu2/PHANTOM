@@ -47,15 +47,11 @@ def detect_bias(candles: List[Candle]) -> Dict[str, Any]:
             bos_events.append({"type": "bearish", "price": last_swing_low, "index": i})
             last_swing_low = None # reset
 
-    # Check if we have any BOS in the last 20 candles
+    # Check if we have any BOS
     if not bos_events:
         return {"bias": "NEUTRAL", "last_bos_price": None, "draw_on_liquidity": None, "bos_type": None}
         
     last_bos = bos_events[-1]
-    # Make sure it occurred recently (within last 20 candles of the total set)
-    if len(candles) - last_bos["index"] > 20:
-        return {"bias": "NEUTRAL", "last_bos_price": None, "draw_on_liquidity": None, "bos_type": None}
-
     bias = "LONG" if last_bos["type"] == "bullish" else "SHORT"
     dol = last_swing_high if bias == "LONG" else last_swing_low
     
@@ -65,3 +61,6 @@ def detect_bias(candles: List[Candle]) -> Dict[str, Any]:
         "draw_on_liquidity": dol,
         "bos_type": last_bos["type"]
     }
+
+# Alias for backtest compatibility
+compute_bias = detect_bias

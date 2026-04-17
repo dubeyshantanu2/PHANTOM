@@ -36,6 +36,7 @@ def detect_sweep(candles: List[Candle], lmap: LiquidityMap, bias: str) -> Option
                     "sweep_type": "SSL",
                     "swept_level": level.price,
                     "sweep_candle_idx": len(candles) - 1,
+                    "timestamp": latest_candle.timestamp,
                     "candle": latest_candle,
                     "strength": strength
                 }
@@ -48,6 +49,7 @@ def detect_sweep(candles: List[Candle], lmap: LiquidityMap, bias: str) -> Option
                     "sweep_type": "BSL",
                     "swept_level": level.price,
                     "sweep_candle_idx": len(candles) - 1,
+                    "timestamp": latest_candle.timestamp,
                     "candle": latest_candle,
                     "strength": strength
                 }

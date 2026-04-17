@@ -31,7 +31,7 @@ MODES = {
         "bias_tf": "15m",
         "pattern_tf": "5m",
         "entry_tf": "1m",
-        "fvg_displacement_atr": 1.0,
+        "fvg_displacement_atr": 0.5,
         "sweep_to_fvg_max_bars": 3,
         "min_rr": 1.5,
         "sl_buffer_points": 5.0
@@ -40,7 +40,7 @@ MODES = {
         "bias_tf": "1h",
         "pattern_tf": "15m",
         "entry_tf": "5m",
-        "fvg_displacement_atr": 1.3,
+        "fvg_displacement_atr": 0.8,
         "sweep_to_fvg_max_bars": 5,
         "min_rr": 2.0,
         "sl_buffer_points": 15.0

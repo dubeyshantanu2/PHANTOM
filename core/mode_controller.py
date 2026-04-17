@@ -144,15 +144,19 @@ class ModePipeline:
         entry_tf = self.config["entry_tf"]
         
         self.setup_data["dict"] = {
-            "timestamp": self.setup_data.get("current_ts", "N/A"),
             "security_id": self.instrument.security_id,
             "symbol": self.instrument.symbol,
             "mode": self.mode,
+            "bias": self.setup_data.get("bias", "UNKNOWN"),
             "bias_tf": bias_tf,
             "pattern_tf": pattern_tf,
             "entry_tf": entry_tf,
             "state": state
         }
+        
+        if "current_ts" in self.setup_data:
+            ts = self.setup_data["current_ts"]
+            self.setup_data["dict"]["timestamp"] = ts.isoformat() if hasattr(ts, 'isoformat') else str(ts)
         
         if "sweep_data" in self.setup_data:
             self.setup_data["dict"]["sweep_type"] = self.setup_data["sweep_data"]["sweep_type"]

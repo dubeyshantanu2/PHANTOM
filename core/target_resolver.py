@@ -24,9 +24,6 @@ def resolve_targets(entry_price: float, sl_price: float, mode: str, bias: str, m
     risk = abs(entry_price - sl_price)
     if risk == 0: return None
     
-    # Simplified target logic based on risk multiples as placeholders for opposing pools/OBs
-    # In a full system, you would query lmap or higher timeframe OBs here.
-    
     if mode == "SCALPER":
         tp1 = entry_price + risk * 1.5 if bias == "LONG" else entry_price - risk * 1.5
         tp2 = entry_price + risk * 2.5 if bias == "LONG" else entry_price - risk * 2.5
@@ -36,9 +33,7 @@ def resolve_targets(entry_price: float, sl_price: float, mode: str, bias: str, m
         tp2 = entry_price + risk * 3.5 if bias == "LONG" else entry_price - risk * 3.5
         tp3 = entry_price + risk * 5.0 if bias == "LONG" else entry_price - risk * 5.0
 
-    # For strict R:R check, use tp3 as the ultimate R:R, or just check against TP1
     rr_ratio = abs(tp3 - entry_price) / risk
-    
     if rr_ratio < min_rr:
         return None
         

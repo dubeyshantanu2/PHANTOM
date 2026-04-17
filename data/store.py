@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Any
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -79,3 +80,52 @@ def update_setup_state(setup_id: int, state: str, outcome: str = None):
         supabase.table("phantom_setups").update(update_data).eq("id", setup_id).execute()
     except Exception as e:
         logger.error(f"Failed to update setup {setup_id}: {e}")
+
+class StoreManager:
+    """
+    Class-based interface for Supabase storage, supporting both 
+    live setups and backtest runs.
+    """
+    def __init__(self):
+        self.supabase = supabase
+
+    def save_backtest_run(self, run_id: str, stats: Any):
+        """Save summary of a backtest run."""
+        if not self.supabase: return
+        data = {
+            "run_id": run_id,
+            "symbol": stats.symbol,
+            "mode": stats.mode,
+            "from_date": stats.from_date,
+            "to_date": stats.to_date,
+            "total_trades": stats.total_trades,
+            "win_rate": stats.win_rate,
+            "profit_factor": stats.profit_factor,
+            "total_pnl": stats.total_pnl_points,
+            "max_drawdown": stats.max_drawdown_points
+        }
+        self.supabase.table("backtest_runs").insert(data).execute()
+
+    def save_backtest_trades_bulk(self, trades_batch: list):
+        """Bulk save backtest individual trades."""
+        if not self.supabase: return
+        self.supabase.table("backtest_trades").insert(trades_batch).execute()
+
+    def save_candles_bulk(self, candles: list, tf: str, instrument: Any):
+        """Save a batch of candles."""
+        if not self.supabase: return
+        data = []
+        for c in candles:
+            data.append({
+                "security_id": instrument.security_id,
+                "symbol": instrument.symbol,
+                "exchange": instrument.exchange,
+                "tf": tf,
+                "open": c.open,
+                "high": c.high,
+                "low": c.low,
+                "close": c.close,
+                "volume": c.volume,
+                "timestamp": c.timestamp.isoformat()
+            })
+        self.supabase.table("candles").insert(data).execute()

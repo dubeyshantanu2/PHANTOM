@@ -48,6 +48,8 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
     if len(candles) < 3: return None
     
     sweep_idx = sweep_data["sweep_candle_idx"]
+    if sweep_idx < 0 or sweep_idx >= len(candles): return None
+    
     # Look for FVG starting from the sweep candle up to current candle (within max_bars)
     
     for i in range(sweep_idx + 2, min(len(candles), sweep_idx + max_bars + 3)):

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial release of PHANTOM (Price Hunt And Market Trap Observation Node).
-- Core engines: Bias, Candle, Engine, FVG, Liquidity, Mode Controller, Setup Validator, Sweep Detector, and Target Resolver.
+- Core engines: Bias, Candle, Entry, FVG, Liquidity, Mode Controller, Setup Validator, Sweep Detector, and Target Resolver.
 - Data integration with Dhan HQ API.
 - Persistence layer using Supabase.
 - Discord alerting system for session updates and trading setups.

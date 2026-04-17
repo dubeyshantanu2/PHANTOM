@@ -3,22 +3,18 @@ import numpy as np
 from typing import List
 from data.feed import Candle
 
-def detect_swings(candles: List[Candle], lookback: int = 5) -> List[Candle]:
+def detect_swings(candles: List[Candle], lookback: int = 3) -> List[Candle]:
     """
     Identifies swing highs and lows and calculates historical volatility (ATR).
-
-    A swing high is defined as a candle high that is higher than 'lookback' 
-    candles before and after it. Conversely for swing lows.
-
-    Args:
-        candles (List[Candle]): List of candles to analyze.
-        lookback (int): Number of candles to check on either side for swing detection.
-            Defaults to 5.
-
-    Returns:
-        List[Candle]: The same list of candles with 'is_swing_high', 'is_swing_low',
-            and 'atr' attributes updated.
     """
+    if not candles: return candles
+    
+    # Pre-initialize attributes to prevent AttributeErrors in other modules
+    for c in candles:
+        if not hasattr(c, 'is_swing_high'): c.is_swing_high = False
+        if not hasattr(c, 'is_swing_low'):  c.is_swing_low = False
+        if not hasattr(c, 'atr'):           c.atr = 0.0
+
     if len(candles) < lookback * 2 + 1:
         return candles
 
@@ -53,3 +49,6 @@ def detect_swings(candles: List[Candle], lookback: int = 5) -> List[Candle]:
             candles[i].atr = float(df.at[i, 'atr'])
 
     return candles
+
+# Alias for backtest compatibility
+enrich_candles = detect_swings
