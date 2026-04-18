@@ -3,17 +3,17 @@ import numpy as np
 from typing import List
 from data.feed import Candle
 
-def detect_swings(candles: List[Candle], lookback: int = 3) -> List[Candle]:
+def detect_swings(candles: List[Candle], lookback: int = 5) -> List[Candle]: # FIXED: Changed default lookback to 5
     """
     Identifies swing highs and lows and calculates historical volatility (ATR).
     """
     if not candles: return candles
     
-    # Pre-initialize attributes to prevent AttributeErrors in other modules
+    # FIXED: Reset ALL swing tags and ATR at the start of each call to prevent stale mutation
     for c in candles:
-        if not hasattr(c, 'is_swing_high'): c.is_swing_high = False
-        if not hasattr(c, 'is_swing_low'):  c.is_swing_low = False
-        if not hasattr(c, 'atr'):           c.atr = 0.0
+        c.is_swing_high = False
+        c.is_swing_low = False
+        c.atr = 0.0
 
     if len(candles) < lookback * 2 + 1:
         return candles

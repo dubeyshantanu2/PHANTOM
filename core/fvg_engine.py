@@ -14,7 +14,7 @@ class FVGZone:
         bottom (float): The lower boundary price of the gap.
         midpoint (float): The 50% equilibrium level of the FVG.
         created_at (datetime): Timestamp when the FVG was formed.
-        status (str): Current state of the zone ("FRESH" or "MITIGATED").
+        status (str): Current state of the zone ("FRESH", "MITIGATED", or "VIOLATED").
         displacement_strength (float): Ratio of the candle body to ATR, indicating 
             the force of the move that created the gap.
     """
@@ -59,6 +59,14 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
         c1 = candles[i-1] # Middle candle
         c2 = candles[i]
         
+        # FIXED: Prevent Cross-Day FVG (Overnight Gap Illusion)
+        if c0.timestamp.date() != c2.timestamp.date():
+            continue
+        
+        # FIXED: Add ATR zero bypass guard
+        if c1.atr is None or c1.atr <= 0:
+            continue
+            
         fvg = None
         
         if bias == "LONG" and c0.high < c2.low:
@@ -73,6 +81,10 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
                     created_at=c1.timestamp,
                     displacement_strength=mid_body / c1.atr
                 )
+                
+                # FIXED: Guard before returning FVGZone
+                if fvg.displacement_strength == 0 or fvg.displacement_strength < 0.5:
+                    continue
                 return fvg
                 
         elif bias == "SHORT" and c0.low > c2.high:
@@ -87,6 +99,36 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
                     created_at=c1.timestamp,
                     displacement_strength=mid_body / c1.atr
                 )
+                
+                # FIXED: Guard before returning FVGZone
+                if fvg.displacement_strength == 0 or fvg.displacement_strength < 0.5:
+                    continue
                 return fvg
                 
     return None
+
+# FIXED: Added update_fvg_status to track MITIGATED and VIOLATED states
+def update_fvg_status(fvg: FVGZone, candle: Candle) -> FVGZone:
+    """
+    Updates the status of an FVG based on subsequent price action.
+    """
+    if fvg.status == "VIOLATED":
+        return fvg
+        
+    if fvg.type == "bullish":
+        # VIOLATED if candle closes fully below the zone
+        if candle.close < fvg.bottom:
+            fvg.status = "VIOLATED"
+        # MITIGATED if candle closes inside the zone
+        elif fvg.bottom <= candle.close <= fvg.top:
+            fvg.status = "MITIGATED"
+            
+    elif fvg.type == "bearish":
+        # VIOLATED if candle closes fully above the zone
+        if candle.close > fvg.top:
+            fvg.status = "VIOLATED"
+        # MITIGATED if candle closes inside the zone
+        elif fvg.bottom <= candle.close <= fvg.top:
+            fvg.status = "MITIGATED"
+            
+    return fvg

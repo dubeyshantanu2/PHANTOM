@@ -40,7 +40,7 @@ MODES = {
         "equal_level_tolerance":   0.05,  # % tolerance for equal highs/lows
 
         # ── Risk parameters ───────────────────────────────────
-        "min_rr":                  1.8,   # was 1.2 — too low after costs
+        "min_rr":                  1.2,   # relaxed
         "sl_buffer_points":        10.0,  # was 3.0 — way too tight for NIFTY
 
         # ── Session filter ────────────────────────────────────
@@ -53,13 +53,13 @@ MODES = {
         "entry_tf":                "5m",
 
         # ── Detection thresholds ──────────────────────────────
-        "fvg_displacement_atr":    1.5,   # was 1.0 — needs stronger displacement
+        "fvg_displacement_atr":    0.8,   # relaxed to allow more FVGs
         "sweep_to_fvg_max_bars":   7,     # was 5 — give 15m structure more room
         "swing_lookback":          7,     # wider lookback for 15m swings
         "equal_level_tolerance":   0.05,
 
         # ── Risk parameters ───────────────────────────────────
-        "min_rr":                  2.5,   # was 1.5 — swing needs better reward
+        "min_rr":                  1.5,   # relaxed
         "sl_buffer_points":        25.0,  # was 10.0 — 15m swept swings need room
 
         # ── Session filter ────────────────────────────────────

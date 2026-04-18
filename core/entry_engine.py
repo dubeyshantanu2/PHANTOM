@@ -31,29 +31,42 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
     """
     if not candles: return None
     
+    # FIXED: BUG 6A — Ensure entries only happen into FRESH FVGs
+    if fvg.status != "FRESH":
+        return None
+        
     latest = candles[-1]
     entry_price = None
     
     if entry_type == "MITIGATION":
-        if bias == "LONG" and latest.low <= fvg.top:
-            entry_price = fvg.top
-        elif bias == "SHORT" and latest.high >= fvg.bottom:
-            entry_price = fvg.bottom
+        # FIXED: BUG 6B — Tighten MITIGATION conditions to ensure price is INSIDE the zone 
+        # and not blown through. Entry at midpoint.
+        if bias == "LONG":
+            if fvg.bottom <= latest.low <= fvg.top:
+                entry_price = fvg.midpoint
+        elif bias == "SHORT":
+            if fvg.bottom <= latest.high <= fvg.top:
+                entry_price = fvg.midpoint
             
     elif entry_type == "REJECTION":
-        if bias == "LONG" and latest.low <= fvg.top and latest.close > fvg.bottom:
-            entry_price = latest.close
-        elif bias == "SHORT" and latest.high >= fvg.bottom and latest.close < fvg.top:
-            entry_price = latest.close
+        # FIXED: BUG 6B — Added zone check before evaluating rejection
+        if bias == "LONG":
+            if fvg.bottom <= latest.low <= fvg.top and latest.close > fvg.bottom:
+                entry_price = latest.close
+        elif bias == "SHORT":
+            if fvg.bottom <= latest.high <= fvg.top and latest.close < fvg.top:
+                entry_price = latest.close
             
     elif entry_type == "BOS":
-        # Simplified: check if close goes above/below previous high/low within FVG
+        # FIXED: BUG 6B — Added zone check before evaluating BOS
         if len(candles) >= 2:
             prev = candles[-2]
-            if bias == "LONG" and latest.low <= fvg.top and latest.close > prev.high:
-                entry_price = latest.close
-            elif bias == "SHORT" and latest.high >= fvg.bottom and latest.close < prev.low:
-                entry_price = latest.close
+            if bias == "LONG":
+                if fvg.bottom <= latest.low <= fvg.top and latest.close > prev.high:
+                    entry_price = latest.close
+            elif bias == "SHORT":
+                if fvg.bottom <= latest.high <= fvg.top and latest.close < prev.low:
+                    entry_price = latest.close
 
     if entry_price:
         # Calculate SL based on sweep wick

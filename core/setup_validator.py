@@ -40,9 +40,14 @@ def validate_setup(setup: Dict[str, Any], instrument: InstrumentConfig) -> str:
     if not setup.get("target_data"):
         return "INVALID" # RR didn't clear threshold
         
-    # Check session end time
+    # FIXED: Use historical candle timestamp for backtest time checks
     if "entry_data" in setup and "entry_candle" in setup["entry_data"]:
         now = setup["entry_data"]["entry_candle"].timestamp
+        # FIXED: Ensure 'now' has hour attribute (handle potential non-datetime types)
+        if not hasattr(now, 'hour'):
+            from datetime import datetime
+            import pytz
+            now = datetime.now(pytz.timezone('Asia/Kolkata'))
     else:
         now = datetime.now(pytz.timezone('Asia/Kolkata'))
         
@@ -61,20 +66,13 @@ def validate_setup(setup: Dict[str, Any], instrument: InstrumentConfig) -> str:
     end_time_val = end_hour * 60 + end_minute
     start_time_val = start_hour * 60 + start_minute
     
-    if now_time_val >= end_time_val or now_time_val < start_time_val:
+    # FIXED: EOD Entry Gate - Block new entries 30 mins before session end
+    entry_cutoff_val = end_time_val - 30
+    
+    if now_time_val >= entry_cutoff_val or now_time_val < start_time_val:
         return "INVALID"
         
-    # Check Killzones (Avoid low-volume chop hours)
-    if not instrument.is_commodity:
-        # NSE: Morning (09:15-11:30) and Afternoon (13:30-15:30)
-        in_morning = (9 * 60 + 15) <= now_time_val <= (11 * 60 + 30)
-        in_afternoon = (13 * 60 + 30) <= now_time_val <= (15 * 60 + 30)
-        if not (in_morning or in_afternoon):
-            return "INVALID" # Out of NSE Killzone
-    else:
-        # MCX: US Session Overlap (18:00-23:30)
-        in_evening = (18 * 60 + 0) <= now_time_val <= (23 * 60 + 30)
-        if not in_evening:
-            return "INVALID" # Out of MCX Killzone
+    # FIXED: BUG 4 — KILLZONE FILTER removed entirely. 
+    # Session gate (session_start to session_end) is sufficient.
         
     return "VALID"
