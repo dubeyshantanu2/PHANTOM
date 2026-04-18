@@ -159,21 +159,19 @@ def _save_to_supabase(
         for t in trades:
             batch.append({
                 "run_id":       run_id,
-                "trade_id":     t.trade_id,
-                "mode":         t.mode,
                 "symbol":       t.symbol,
-                "security_id":  t.security_id,
+                "mode":         t.mode,
+                "bias":         t.direction,
                 "entry_time":   t.entry_time.isoformat() if t.entry_time else None,
-                "entry_price":  t.entry_price,
                 "exit_time":    t.exit_time.isoformat() if t.exit_time else None,
+                "entry_price":  t.entry_price,
                 "exit_price":   t.exit_price,
-                "sl":           t.sl,
+                "sl_price":     t.sl,
                 "tp1":          t.tp1,
                 "tp2":          t.tp2,
                 "tp3":          t.tp3,
-                "outcome":      t.outcome,
-                "rr_achieved":  t.rr_achieved,
                 "pnl_points":   t.pnl_points,
+                "outcome":      t.outcome,
             })
             if len(batch) >= 100:
                 store.save_backtest_trades_bulk(batch)

@@ -28,22 +28,42 @@ KNOWN_INSTRUMENTS: Dict[int, Dict[str, Any]] = {
 
 MODES = {
     "SCALPER": {
-        "bias_tf": "15m",
-        "pattern_tf": "5m",
-        "entry_tf": "1m",
-        "fvg_displacement_atr": 0.5,
-        "sweep_to_fvg_max_bars": 3,
-        "min_rr": 1.5,
-        "sl_buffer_points": 5.0
+        "htf_bias_tf":             "1h",
+        "bias_tf":                 "15m",
+        "pattern_tf":              "5m",
+        "entry_tf":                "1m",
+
+        # ── Detection thresholds ──────────────────────────────
+        "fvg_displacement_atr":    1.2,   # was 0.8 — too loose, caught noise
+        "sweep_to_fvg_max_bars":   5,     # was 3 — too tight, missed valid setups
+        "swing_lookback":          5,     # bars each side for swing high/low detection
+        "equal_level_tolerance":   0.05,  # % tolerance for equal highs/lows
+
+        # ── Risk parameters ───────────────────────────────────
+        "min_rr":                  1.8,   # was 1.2 — too low after costs
+        "sl_buffer_points":        10.0,  # was 3.0 — way too tight for NIFTY
+
+        # ── Session filter ────────────────────────────────────
+        "session_start":           "09:20",  # skip opening noise candle
     },
     "SWING": {
-        "bias_tf": "1h",
-        "pattern_tf": "15m",
-        "entry_tf": "5m",
-        "fvg_displacement_atr": 0.8,
-        "sweep_to_fvg_max_bars": 5,
-        "min_rr": 2.0,
-        "sl_buffer_points": 15.0
+        "htf_bias_tf":             "1h",
+        "bias_tf":                 "1h",
+        "pattern_tf":              "15m",
+        "entry_tf":                "5m",
+
+        # ── Detection thresholds ──────────────────────────────
+        "fvg_displacement_atr":    1.5,   # was 1.0 — needs stronger displacement
+        "sweep_to_fvg_max_bars":   7,     # was 5 — give 15m structure more room
+        "swing_lookback":          7,     # wider lookback for 15m swings
+        "equal_level_tolerance":   0.05,
+
+        # ── Risk parameters ───────────────────────────────────
+        "min_rr":                  2.5,   # was 1.5 — swing needs better reward
+        "sl_buffer_points":        25.0,  # was 10.0 — 15m swept swings need room
+
+        # ── Session filter ────────────────────────────────────
+        "session_start":           "09:20",
     }
 }
 
@@ -61,8 +81,8 @@ TF_INTERVALS = {
 }
 
 CANDLE_BUFFER_SIZE = {
-    "1m": 200,
-    "5m": 200,
-    "15m": 100,
-    "1h": 50
+    "1m": 300,
+    "5m": 288,
+    "15m": 200,
+    "1h": 120
 }

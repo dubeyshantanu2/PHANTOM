@@ -65,13 +65,16 @@ class ModePipeline:
             self.setup_data["current_ts"] = feed_manager.cursor_timestamp
 
         # 1. Fetch candles
+        htf_bias_tf = self.config.get("htf_bias_tf", self.config["bias_tf"])
+        htf_bias_candles = feed_manager.get_candles(self.instrument, htf_bias_tf, 50)
         bias_candles = feed_manager.get_candles(self.instrument, self.config["bias_tf"], 50)
         pattern_candles = feed_manager.get_candles(self.instrument, self.config["pattern_tf"], 50)
         entry_candles = feed_manager.get_candles(self.instrument, self.config["entry_tf"], 50)
 
         # 2. State Machine
         if self.state == "IDLE":
-            bias_res = detect_bias(bias_candles)
+            enriched_bias = detect_swings(bias_candles, lookback=self.config.get("swing_lookback", 3))
+            bias_res = detect_bias(enriched_bias)
             if bias_res["bias"] != "NEUTRAL":
                 self.setup_data["bias"] = bias_res["bias"]
                 self.setup_data["bias_data"] = bias_res
@@ -79,19 +82,23 @@ class ModePipeline:
                 logger.info(f"{self.instrument.symbol} [{self.mode}] Bias Confirmed: {bias_res['bias']}")
 
         elif self.state == "BIAS_CONFIRMED":
-            self.lmap = build_liquidity_map(pattern_candles)
+            enriched_pattern = detect_swings(pattern_candles, lookback=self.config.get("swing_lookback", 3))
+            tolerance = self.config.get("equal_level_tolerance", 0.05) / 100.0
+            self.lmap = build_liquidity_map(enriched_pattern, tolerance=tolerance)
             if self.lmap:
                 self.state = "LIQUIDITY_MAPPED"
 
         elif self.state == "LIQUIDITY_MAPPED":
-            sweep = detect_sweep(pattern_candles, self.lmap, self.setup_data["bias"])
+            enriched_pattern = detect_swings(pattern_candles, lookback=self.config.get("swing_lookback", 3))
+            sweep = detect_sweep(enriched_pattern, self.lmap, self.setup_data["bias"])
             if sweep:
                 self.setup_data["sweep_data"] = sweep
                 self.state = "SWEEP_DETECTED"
                 logger.info(f"{self.instrument.symbol} [{self.mode}] Sweep Detected: {sweep['sweep_type']}")
 
         elif self.state == "SWEEP_DETECTED":
-            fvg = detect_fvg(pattern_candles, self.setup_data["sweep_data"], self.setup_data["bias"],
+            enriched_pattern = detect_swings(pattern_candles, lookback=self.config.get("swing_lookback", 3))
+            fvg = detect_fvg(enriched_pattern, self.setup_data["sweep_data"], self.setup_data["bias"],
                              self.config["fvg_displacement_atr"], self.config["sweep_to_fvg_max_bars"])
             if fvg:
                 self.setup_data["fvg_data"] = fvg
@@ -104,7 +111,8 @@ class ModePipeline:
                     logger.info(f"Backtest: Setup FVG_FORMED for {self.instrument.symbol}")
 
         elif self.state == "FVG_FORMED":
-            entry = evaluate_entry(entry_candles, self.setup_data["fvg_data"], ENTRY_TYPE, 
+            enriched_entry = detect_swings(entry_candles, lookback=self.config.get("swing_lookback", 3))
+            entry = evaluate_entry(enriched_entry, self.setup_data["fvg_data"], ENTRY_TYPE, 
                                    self.setup_data["bias"], self.config["sl_buffer_points"], 
                                    self.setup_data["sweep_data"])
             if entry:
@@ -112,15 +120,37 @@ class ModePipeline:
                 targets = resolve_targets(entry["entry_price"], entry["sl_price"], self.mode, 
                                           self.setup_data["bias"], self.config["min_rr"], self.lmap)
                 if targets:
+                    enriched_htf = detect_swings(htf_bias_candles, lookback=self.config.get("swing_lookback", 3))
+                    htf_bias_res = detect_bias(enriched_htf)
+                    self.setup_data["htf_bias"] = htf_bias_res["bias"]
                     self.setup_data["target_data"] = targets
-                    self.state = "ENTRY_ZONE"
-                    self._prepare_setup_dict("ENTRY_ZONE")
-                    if not self.dry_run:
-                        send_alert("ENTRY_ZONE", self.setup_data["dict"])
-                        update_setup_state(self.setup_id, "ENTRY_ZONE")
+                    
+                    # Validate before proceeding
+                    setup_for_validation = {
+                        "bias": self.setup_data["bias"],
+                        "htf_bias": self.setup_data["htf_bias"],
+                        "sweep_data": self.setup_data["sweep_data"],
+                        "fvg_data": self.setup_data["fvg_data"],
+                        "entry_data": self.setup_data["entry_data"],
+                        "target_data": self.setup_data["target_data"],
+                    }
+                    if validate_setup(setup_for_validation, self.instrument) == "VALID":
+                        self.state = "ENTRY_ZONE"
+                        self._prepare_setup_dict("ENTRY_ZONE")
+                        if not self.dry_run:
+                            send_alert("ENTRY_ZONE", self.setup_data["dict"])
+                            update_setup_state(self.setup_id, "ENTRY_ZONE")
+                        else:
+                            logger.info(f"Backtest: Setup ENTRY_ZONE for {self.instrument.symbol}")
+                            self.setups_found.append(self.setup_data["dict"])
                     else:
-                        logger.info(f"Backtest: Setup ENTRY_ZONE for {self.instrument.symbol}")
-                        self.setups_found.append(self.setup_data["dict"])
+                        self.state = "INVALIDATED"
+                        self._prepare_setup_dict("INVALIDATED")
+                        self.setup_data["dict"]["reason"] = "HTF Alignment or RR fail"
+                        if not self.dry_run:
+                            send_alert("INVALIDATED", self.setup_data["dict"])
+                            update_setup_state(self.setup_id, "INVALIDATED", "VALIDATION_FAIL")
+                        self.reset()
                 else:
                     self.state = "INVALIDATED"
                     self._prepare_setup_dict("INVALIDATED")

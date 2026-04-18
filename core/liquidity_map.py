@@ -32,18 +32,18 @@ class LiquidityMap:
         self.bsl: List[LiquidityLevel] = []
         self.ssl: List[LiquidityLevel] = []
 
-def build_liquidity_map(candles: List[Candle]) -> LiquidityMap:
+def build_liquidity_map(candles: List[Candle], tolerance: float = 0.0005) -> LiquidityMap:
     """
     Constructs a map of significant price levels based on swing highs and lows.
 
     Arg:
         candles (List[Candle]): List of candles enriched with swing data.
+        tolerance (float): Percentage tolerance for matching equal levels.
 
     Returns:
         LiquidityMap: An organized map of BSL and SSL levels.
     """
     lmap = LiquidityMap()
-    tolerance = 0.0005 # 0.05%
     
     for c in candles:
         if c.is_swing_high:

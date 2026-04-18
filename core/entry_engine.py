@@ -41,9 +41,9 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
             entry_price = fvg.bottom
             
     elif entry_type == "REJECTION":
-        if bias == "LONG" and latest.low <= fvg.top and latest.close > fvg.top:
+        if bias == "LONG" and latest.low <= fvg.top and latest.close > fvg.bottom:
             entry_price = latest.close
-        elif bias == "SHORT" and latest.high >= fvg.bottom and latest.close < fvg.bottom:
+        elif bias == "SHORT" and latest.high >= fvg.bottom and latest.close < fvg.top:
             entry_price = latest.close
             
     elif entry_type == "BOS":
@@ -58,6 +58,12 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
     if entry_price:
         # Calculate SL based on sweep wick
         sl_price = sweep_data["candle"].low - sl_buffer if bias == "LONG" else sweep_data["candle"].high + sl_buffer
+        
+        # Ensure SL is actually protective (not worse than entry)
+        if bias == "LONG" and sl_price >= entry_price:
+            return None
+        if bias == "SHORT" and sl_price <= entry_price:
+            return None
         
         return {
             "entry_price": round(entry_price, 2),

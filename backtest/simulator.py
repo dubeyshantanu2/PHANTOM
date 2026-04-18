@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 from tqdm import tqdm
 
 from backtest.data_loader import Candle
-from config import InstrumentConfig, MODES, CANDLE_BUFFER_SIZE
+from config import InstrumentConfig, MODES, CANDLE_BUFFER_SIZE, ENTRY_TYPE
 
 logger = logging.getLogger("PHANTOM.backtest.simulator")
 
@@ -271,32 +271,39 @@ class BacktestSimulator:
             clock_candle: The current master-clock candle.
         """
         cfg = MODES[mode_name]
+        htf_bias_tf = cfg.get("htf_bias_tf", cfg["bias_tf"])
         bias_tf    = cfg["bias_tf"]
         pattern_tf = cfg["pattern_tf"]
         entry_tf   = cfg["entry_tf"]
 
+        htf_bias_buf = self.buffers.get(htf_bias_tf, RollingBuffer(50)).to_list()
         bias_buf    = self.buffers.get(bias_tf, RollingBuffer(50)).to_list()
         pattern_buf = self.buffers.get(pattern_tf, RollingBuffer(200)).to_list()
         entry_buf   = self.buffers.get(entry_tf, RollingBuffer(200)).to_list()
 
         # Need minimum candles to proceed
-        if len(bias_buf) < 20 or len(pattern_buf) < 10:
+        if len(bias_buf) < 20 or len(pattern_buf) < 10 or len(htf_bias_buf) < 20:
             return
 
         state = self._state[mode_name]
 
         try:
             # 1. Enrich candles with swing tags + ATR
-            enriched_pattern = self._enrich(pattern_buf)
-            enriched_bias    = self._enrich(bias_buf)
+            enriched_pattern = self._enrich(pattern_buf, lookback=cfg.get("swing_lookback", 3))
+            enriched_bias    = self._enrich(bias_buf, lookback=cfg.get("swing_lookback", 3))
+            enriched_htf_bias = self._enrich(htf_bias_buf, lookback=cfg.get("swing_lookback", 3))
 
             # 2. Build/update liquidity map
-            liq_map = self._build_liq(enriched_pattern)
+            tolerance = cfg.get("equal_level_tolerance", 0.05) / 100.0
+            liq_map = self._build_liq(enriched_pattern, tolerance=tolerance)
             state["liquidity_map"] = liq_map
 
             # 3. Compute bias from HTF
             bias_result = self._bias(enriched_bias)
             bias = bias_result.get("bias")
+            
+            htf_bias_result = self._bias(enriched_htf_bias)
+            htf_bias = htf_bias_result.get("bias")
             
             # Log bias shift
             if bias != state["last_bias"]:
@@ -349,7 +356,7 @@ class BacktestSimulator:
                 entry_signal = self._entry(
                     enriched_entry,
                     state["pending_fvg"],
-                    cfg["entry_type"] if "entry_type" in cfg else "MITIGATION",
+                    ENTRY_TYPE,
                     bias,
                     cfg["sl_buffer_points"],
                     state["pending_sweep"]
@@ -371,6 +378,7 @@ class BacktestSimulator:
                     # 8. Validate full setup
                     setup = {
                         "bias": bias,
+                        "htf_bias": htf_bias,
                         "sweep_data": state["pending_sweep"],
                         "fvg_data": state["pending_fvg"],
                         "entry_data": entry_signal,
@@ -386,6 +394,10 @@ class BacktestSimulator:
                             timestamp=clock_candle.timestamp,
                         )
                         # Reset pending state
+                        state["pending_sweep"] = None
+                        state["pending_fvg"] = None
+                    elif valid == "INVALID":
+                        logger.debug(f"[{mode_name}] Setup invalidated at entry zone (e.g. HTF conflict)")
                         state["pending_sweep"] = None
                         state["pending_fvg"] = None
 
@@ -445,24 +457,27 @@ class BacktestSimulator:
                 exit_price = t.tp3
 
             # --- TP2 check ---
-            elif (is_long and candle.high >= t.tp2) or \
-                 (not is_long and candle.low <= t.tp2):
-                if not t.tp2_hit:
-                    t.tp2_hit = True
-                    # Move SL to TP1
-                    t.sl = t.tp1
-                    t.sl_moved_to_tp1 = True
-                    logger.debug(f"TP2 hit — SL moved to TP1 ({t.tp1})")
+            if outcome is None:
+                if (is_long and candle.high >= t.tp2) or \
+                   (not is_long and candle.low <= t.tp2):
+                    if not t.tp2_hit:
+                        t.tp2_hit = True
+                        # Move SL to TP1
+                        t.sl = t.tp1
+                        t.sl_moved_to_tp1 = True
+                        logger.debug(f"TP2 hit — SL moved to TP1 ({t.tp1})")
 
             # --- TP1 check ---
-            elif (is_long and candle.high >= t.tp1) or \
-                 (not is_long and candle.low <= t.tp1):
-                if not t.tp1_hit:
-                    t.tp1_hit = True
-                    # Move SL to breakeven
-                    t.sl = t.entry_price
-                    t.sl_moved_to_be = True
-                    logger.debug(f"TP1 hit — SL moved to breakeven ({t.entry_price})")
+            if outcome is None:
+                if (is_long and candle.high >= t.tp1) or \
+                   (not is_long and candle.low <= t.tp1):
+                    if not t.tp1_hit:
+                        t.tp1_hit = True
+                        # Move SL to breakeven unless already moved to TP1
+                        if not t.sl_moved_to_tp1:
+                            t.sl = t.entry_price
+                            t.sl_moved_to_be = True
+                            logger.debug(f"TP1 hit — SL moved to breakeven ({t.entry_price})")
 
             # --- SL check (after partial TP adjustments) ---
             if outcome is None:
@@ -494,9 +509,25 @@ class BacktestSimulator:
     ) -> None:
         """Finalise a trade and record it in self.trades."""
         if t.direction == "LONG":
-            pnl = round(exit_price - t.entry_price, 2)
+            full_pnl = exit_price - t.entry_price
+            tp1_pnl = t.tp1 - t.entry_price
+            tp3_pnl = t.tp3 - t.entry_price
         else:
-            pnl = round(t.entry_price - exit_price, 2)
+            full_pnl = t.entry_price - exit_price
+            tp1_pnl = t.entry_price - t.tp1
+            tp3_pnl = t.entry_price - t.tp3
+
+        if outcome == "TP1":
+            # 50% booked at TP1, 50% stopped at breakeven
+            pnl = round(tp1_pnl * 0.5, 2)
+        elif outcome == "TP2":
+            # 50% booked at TP1, 50% stopped at TP1 (SL moved to TP1)
+            pnl = round(tp1_pnl, 2)
+        elif outcome == "TP3":
+            # 50% booked at TP1, 50% closed at TP3
+            pnl = round(tp1_pnl * 0.5 + tp3_pnl * 0.5, 2)
+        else:
+            pnl = round(full_pnl, 2)
 
         risk = abs(t.entry_price - t.sl)
         rr = round(pnl / risk, 2) if risk > 0 else 0.0
