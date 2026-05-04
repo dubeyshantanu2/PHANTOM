@@ -226,30 +226,59 @@ def run_live(instrument: InstrumentConfig, mode: str) -> None:
     setup_count = 0
 
     # ── Per-TF tick functions ────────────────────────────────────────────────
+    _is_ticking = False
 
     def tick_1m():
-        """1-minute tick: feeds SCALPER entry engine."""
-        candles = feed.get_candles(instrument.security_id, "1m", limit=200)
-        store.save_candles_bulk(candles, "1m", instrument)
-        controller.on_candles("1m", candles)
+        nonlocal _is_ticking
+        if _is_ticking:
+            return
+        _is_ticking = True
+        try:
+            """1-minute tick: feeds SCALPER entry engine."""
+            candles = feed.get_candles(instrument.security_id, "1m", limit=200)
+            store.save_candles_bulk(candles, "1m", instrument)
+            controller.on_candles("1m", candles)
+        finally:
+            _is_ticking = False
 
     def tick_5m():
-        """5-minute tick: SCALPER pattern detection + SWING entry engine."""
-        candles = feed.get_candles(instrument.security_id, "5m", limit=200)
-        store.save_candles_bulk(candles, "5m", instrument)
-        controller.on_candles("5m", candles)
+        nonlocal _is_ticking
+        if _is_ticking:
+            return
+        _is_ticking = True
+        try:
+            """5-minute tick: SCALPER pattern detection + SWING entry engine."""
+            candles = feed.get_candles(instrument.security_id, "5m", limit=200)
+            store.save_candles_bulk(candles, "5m", instrument)
+            controller.on_candles("5m", candles)
+        finally:
+            _is_ticking = False
 
     def tick_15m():
-        """15-minute tick: SWING pattern detection + SCALPER bias engine."""
-        candles = feed.get_candles(instrument.security_id, "15m", limit=100)
-        store.save_candles_bulk(candles, "15m", instrument)
-        controller.on_candles("15m", candles)
+        nonlocal _is_ticking
+        if _is_ticking:
+            return
+        _is_ticking = True
+        try:
+            """15-minute tick: SWING pattern detection + SCALPER bias engine."""
+            candles = feed.get_candles(instrument.security_id, "15m", limit=100)
+            store.save_candles_bulk(candles, "15m", instrument)
+            controller.on_candles("15m", candles)
+        finally:
+            _is_ticking = False
 
     def tick_1h():
-        """1-hour tick: SWING bias engine."""
-        candles = feed.get_candles(instrument.security_id, "1h", limit=50)
-        store.save_candles_bulk(candles, "1h", instrument)
-        controller.on_candles("1h", candles)
+        nonlocal _is_ticking
+        if _is_ticking:
+            return
+        _is_ticking = True
+        try:
+            """1-hour tick: SWING bias engine."""
+            candles = feed.get_candles(instrument.security_id, "1h", limit=50)
+            store.save_candles_bulk(candles, "1h", instrument)
+            controller.on_candles("1h", candles)
+        finally:
+            _is_ticking = False
 
     # ── Schedule separate jobs per TF ────────────────────────────────────────
     schedule.every(1).minutes.do(tick_1m)
