@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Session Setup Count**: Fixed a bug where `setup_count` was always 0 in the session-end alert by summing the setups directly from the `ModeController` pipelines instead of calling the non-existent `get_setup_count()` method.
 - **CLI Parsing**: Replaced custom `sys.argv` parsing with standard `argparse`. Added explicit `--id` and `--mode` arguments to fix the broken `--<id>` syntax.
 
 ## [1.1.0] - 2026-04-18

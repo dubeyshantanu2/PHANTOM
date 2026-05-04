@@ -270,7 +270,7 @@ def run_live(instrument: InstrumentConfig, mode: str) -> None:
             schedule.run_pending()
 
             # Track setup count from controller
-            setup_count = controller.get_setup_count()
+            setup_count = sum(len(p.setups_found) for p in controller.pipelines)
 
             # Session end check on every loop tick
             if is_session_over(instrument):
