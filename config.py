@@ -29,38 +29,41 @@ KNOWN_INSTRUMENTS: Dict[int, Dict[str, Any]] = {
 MODES = {
     "SCALPER": {
         "htf_bias_tf":             "1h",
-        "bias_tf":                 "15m",
-        "pattern_tf":              "5m",
-        "entry_tf":                "1m",
+        "bias_tf":                 "1h",     # Shifted from 15m
+        "pattern_tf":              "15m",    # Shifted from 5m
+        "entry_tf":                "5m",     # Shifted from 1m
+        "ignore_htf_bias":         True,  
 
         # ── Detection thresholds ──────────────────────────────
-        "fvg_displacement_atr":    1.2,   # was 0.8 — too loose, caught noise
-        "sweep_to_fvg_max_bars":   5,     # was 3 — too tight, missed valid setups
-        "swing_lookback":          5,     # bars each side for swing high/low detection
-        "equal_level_tolerance":   0.05,  # % tolerance for equal highs/lows
+        "fvg_displacement_atr":    0.5,   
+        "sweep_to_fvg_max_bars":   10,    
+        "swing_lookback":          3,     
+        "equal_level_tolerance":   0.05,  
 
         # ── Risk parameters ───────────────────────────────────
-        "min_rr":                  1.2,   # relaxed
-        "sl_buffer_points":        10.0,  # was 3.0 — way too tight for NIFTY
+        "min_rr":                  1.1,   
+        "sl_buffer_atr":           1.0,   
+        "max_risk_points":         90.0,  # Increased from 60
 
         # ── Session filter ────────────────────────────────────
-        "session_start":           "09:20",  # skip opening noise candle
+        "session_start":           "09:20",  
     },
     "SWING": {
         "htf_bias_tf":             "1h",
         "bias_tf":                 "1h",
-        "pattern_tf":              "15m",
-        "entry_tf":                "5m",
+        "pattern_tf":              "1h",     
+        "entry_tf":                "15m",    
 
         # ── Detection thresholds ──────────────────────────────
-        "fvg_displacement_atr":    0.8,   # relaxed to allow more FVGs
-        "sweep_to_fvg_max_bars":   7,     # was 5 — give 15m structure more room
-        "swing_lookback":          7,     # wider lookback for 15m swings
+        "fvg_displacement_atr":    0.5,   
+        "sweep_to_fvg_max_bars":   15,    
+        "swing_lookback":          5,     
         "equal_level_tolerance":   0.05,
 
         # ── Risk parameters ───────────────────────────────────
-        "min_rr":                  1.5,   # relaxed
-        "sl_buffer_points":        25.0,  # was 10.0 — 15m swept swings need room
+        "min_rr":                  1.2,   
+        "sl_buffer_atr":           1.5,   
+        "max_risk_points":         200.0, # Increased from 120
 
         # ── Session filter ────────────────────────────────────
         "session_start":           "09:20",
@@ -71,7 +74,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 ACTIVE_MODE = os.getenv("ACTIVE_MODE", "BOTH")
-ENTRY_TYPE = os.getenv("ENTRY_TYPE", "MITIGATION")
+ENTRY_TYPE = os.getenv("ENTRY_TYPE", "REJECTION")  # Changed from MITIGATION to REJECTION
 
 TF_INTERVALS = {
     "1m": 60,

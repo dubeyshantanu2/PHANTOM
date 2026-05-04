@@ -12,9 +12,15 @@ PHANTOM operates as a state-machine based observation node, synchronizing multip
 ```mermaid
 graph TD
     A[Main Loop] --> B{Feed Manager}
-    B -->|OHLCV Data| C[Mode Controller]
+    B -->|Live OHLCV| C[Mode Controller]
+    B -->|Historical Feed| BT[Backtest Engine]
+    
     C --> D[Mode Pipeline: Scalper]
     C --> E[Mode Pipeline: Swing]
+    
+    BT --> S[Backtest Simulator]
+    S --> D
+    S --> E
     
     subgraph "Core Engines"
         D --> F[Bias Engine]
@@ -26,8 +32,10 @@ graph TD
     end
     
     K --> L[Setup Validator]
-    L -->|Valid| M[Supabase Store]
-    L -->|Valid| N[Discord Webhook]
+    L -->|Valid Setup| M[Supabase Store]
+    L -->|Valid Setup| N[Discord Webhook]
+    S -->|Stats & Trades| M
+    S -->|HTML Report| R[Report Generator]
 ```
 
 ---
@@ -83,6 +91,11 @@ Execute the `schema.sql` file in your Supabase SQL Editor to create the necessar
 - **Feed Manager**: Handles real-time polling and historical data fetching via Dhan HQ.
 - **Store Manager**: Manages asynchronous persistence to Supabase.
 
+### 🧪 Backtest System
+- **Backtest Simulator**: Replays historical candles tick-by-tick through core modules.
+- **Report Generator**: Produces premium HTML dashboards with Chart.js visualization.
+- **Backtest Feed**: Specialized provider for historical OHLCV data.
+
 ---
 
 ## ⌨️ CLI Usage
@@ -102,6 +115,23 @@ Override active mode to Swing only:
 python main.py --15 --SWING
 ```
 
+### 📊 Backtesting
+
+Run a 30-day backtest for NIFTY and open the report:
+```bash
+python main.py --backtest --report
+```
+
+Run backtest for a specific range and instrument:
+```bash
+python main.py --backtest --15 --from 2024-01-01 --to 2024-03-31 --report
+```
+
+Run backtest for the last 90 days in Scalper mode:
+```bash
+python main.py --backtest --SCALPER --days 90 --report
+```
+
 ---
 
 ## 📄 Automated Documentation
@@ -114,5 +144,21 @@ Outputs are saved in `directives/api-docs/`.
 
 ---
 
+## 📚 API Documentation
+
+Technical documentation for all system modules is available in the [directives/api-docs/](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs) directory.
+
+### Key Modules:
+- **Core Engines**: [Bias Engine](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/core_bias_engine.md), [Sweep Detector](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/core_sweep_detector.md), [FVG Engine](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/core_fvg_engine.md)
+- **Backtest**: [Simulator](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/backtest_simulator.md), [Report Generator](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/backtest_report.md)
+- **Data Layer**: [Feed Manager](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/data_feed.md), [Store Manager](file:///home/atompopeye/Documents/PHANTOM/directives/api-docs/data_store.md)
+
+To refresh the documentation:
+```bash
+python execution/generate_docs.py
+```
+
+---
+
 ## 📜 License
-This project is proprietary and intended for personal trading observation.
+PHANTOM is proprietary software. All rights reserved.

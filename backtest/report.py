@@ -137,16 +137,15 @@ def generate_report(
     trades: List[BacktestTrade],
     run_id: str,
 ) -> str:
-    """
-    Generate a self-contained HTML backtest report and save it to disk.
+    """Generate a self-contained HTML backtest report and save it to disk.
 
     Args:
-        stats: Computed BacktestStats.
-        trades: All BacktestTrade objects from the simulator.
-        run_id: UUID string for this run (used in filename).
+        stats (BacktestStats): Computed BacktestStats.
+        trades (List[BacktestTrade]): All BacktestTrade objects from the simulator.
+        run_id (str): UUID string for this run (used in filename).
 
     Returns:
-        Absolute path to the generated HTML file.
+        str: Absolute path to the generated HTML file.
     """
     os.makedirs(REPORTS_DIR, exist_ok=True)
 

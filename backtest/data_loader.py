@@ -35,11 +35,16 @@ TF_TO_INTERVAL = {
 }
 
 # TFs required per mode
-MODE_TF_MAP = {
-    "SCALPER": ["1m", "5m", "15m"],
-    "SWING":   ["5m", "15m", "1h"],
-    "BOTH":    ["1m", "5m", "15m", "1h"],
-}
+def _get_required_tfs(mode: str) -> List[str]:
+    from config import MODES
+    if mode == "BOTH":
+        tfs = set()
+        tfs.update([MODES["SCALPER"]["htf_bias_tf"], MODES["SCALPER"]["bias_tf"], MODES["SCALPER"]["pattern_tf"], MODES["SCALPER"]["entry_tf"]])
+        tfs.update([MODES["SWING"]["htf_bias_tf"], MODES["SWING"]["bias_tf"], MODES["SWING"]["pattern_tf"], MODES["SWING"]["entry_tf"]])
+        return list(tfs)
+    else:
+        cfg = MODES.get(mode, MODES["SCALPER"])
+        return list(set([cfg["htf_bias_tf"], cfg["bias_tf"], cfg["pattern_tf"], cfg["entry_tf"]]))
 
 
 @dataclass
@@ -268,7 +273,7 @@ def load_historical(
         Dict mapping timeframe string to list of Candle objects.
         e.g. {"1m": [...], "5m": [...], "15m": [...], "1h": [...]}
     """
-    required_tfs = MODE_TF_MAP.get(mode.upper(), MODE_TF_MAP["BOTH"])
+    required_tfs = _get_required_tfs(mode)
     result: Dict[str, List[Candle]] = {}
 
     for tf in required_tfs:

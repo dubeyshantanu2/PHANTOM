@@ -40,6 +40,17 @@ def validate_setup(setup: Dict[str, Any], instrument: InstrumentConfig) -> str:
     if not setup.get("target_data"):
         return "INVALID" # RR didn't clear threshold
         
+    # Check max absolute risk in points
+    entry_price = setup["entry_data"]["entry_price"]
+    sl_price = setup["entry_data"]["sl_price"]
+    risk = abs(entry_price - sl_price)
+    
+    if "mode" in setup:
+        from config import MODES
+        max_risk = MODES[setup["mode"]].get("max_risk_points", 9999)
+        if risk > max_risk:
+            return "INVALID" # Risk too high
+        
     # FIXED: Use historical candle timestamp for backtest time checks
     if "entry_data" in setup and "entry_candle" in setup["entry_data"]:
         now = setup["entry_data"]["entry_candle"].timestamp
@@ -65,9 +76,10 @@ def validate_setup(setup: Dict[str, Any], instrument: InstrumentConfig) -> str:
     now_time_val = now.hour * 60 + now.minute
     end_time_val = end_hour * 60 + end_minute
     start_time_val = start_hour * 60 + start_minute
-    
+
     # FIXED: EOD Entry Gate - Block new entries 30 mins before session end
     entry_cutoff_val = end_time_val - 30
+
     
     if now_time_val >= entry_cutoff_val or now_time_val < start_time_val:
         return "INVALID"

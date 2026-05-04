@@ -28,7 +28,27 @@ logger = logging.getLogger("PHANTOM.backtest.simulator")
 
 @dataclass
 class BacktestTrade:
-    """Represents a single completed backtest trade."""
+    """Represents a single completed backtest trade.
+
+    Attributes:
+        trade_id (str): Unique identifier for the trade.
+        mode (str): Trading mode, either 'SCALPER' or 'SWING'.
+        symbol (str): Trading symbol.
+        security_id (int): Security ID of the instrument.
+        direction (str): Trade direction, 'LONG' or 'SHORT'.
+        entry_time (datetime): Time of trade entry.
+        entry_price (float): Execution price at entry.
+        exit_time (Optional[datetime]): Time of trade exit.
+        exit_price (Optional[float]): Execution price at exit.
+        sl (float): Stop-loss price.
+        tp1 (float): Take-profit target 1.
+        tp2 (float): Take-profit target 2.
+        tp3 (float): Take-profit target 3.
+        outcome (str): Final outcome of the trade (e.g., 'TP1', 'SL').
+        rr_achieved (float): Reward-to-risk ratio achieved.
+        pnl_points (float): Profit and loss in points.
+        setup_id (str): Reference to the original setup identifier.
+    """
     trade_id:     str
     mode:         str           # SCALPER | SWING
     symbol:       str
@@ -50,7 +70,32 @@ class BacktestTrade:
 
 @dataclass
 class BacktestStats:
-    """Aggregate statistics for a completed backtest run."""
+    """Aggregate statistics for a completed backtest run.
+
+    Attributes:
+        symbol (str): Trading symbol.
+        security_id (int): Security ID of the instrument.
+        mode (str): Active trading mode.
+        from_date (str): Start date of the backtest.
+        to_date (str): End date of the backtest.
+        total_setups (int): Total number of valid setups identified.
+        total_trades (int): Total number of trades executed.
+        winners (int): Number of winning trades.
+        losers (int): Number of losing trades.
+        expired (int): Number of trades that expired.
+        win_rate (float): Percentage of winning trades.
+        avg_rr (float): Average reward-to-risk ratio.
+        total_pnl_points (float): Aggregate PnL in points.
+        max_drawdown_points (float): Maximum peak-to-trough drawdown.
+        best_trade_points (float): PnL of the best trade.
+        worst_trade_points (float): PnL of the worst trade.
+        profit_factor (float): Ratio of gross wins to gross losses.
+        avg_win_points (float): Average points gained on winners.
+        avg_loss_points (float): Average points lost on losers.
+        trades_per_day (float): Average trades executed per day.
+        scalper_stats (dict): Performance breakdown for scalper mode.
+        swing_stats (dict): Performance breakdown for swing mode.
+    """
     symbol:              str
     security_id:         int
     mode:                str
@@ -78,15 +123,21 @@ class BacktestStats:
 # ── Rolling buffer helper ──────────────────────────────────────────────────────
 
 class RollingBuffer:
-    """Fixed-size deque that exposes the latest N candles as a list."""
+    """Fixed-size deque that exposes the latest N candles as a list.
+
+    Args:
+        maxlen (int): Maximum size of the buffer.
+    """
 
     def __init__(self, maxlen: int):
         self._buf: deque = deque(maxlen=maxlen)
 
     def append(self, candle: Candle) -> None:
+        """Add a new candle to the rolling buffer."""
         self._buf.append(candle)
 
     def to_list(self) -> List[Candle]:
+        """Convert the buffer to a standard Python list."""
         return list(self._buf)
 
     def __len__(self) -> int:
@@ -97,7 +148,24 @@ class RollingBuffer:
 
 @dataclass
 class _ActiveTrade:
-    """Internal representation of an open trade being tracked."""
+    """Internal representation of an open trade being tracked.
+
+    Attributes:
+        trade_id (str): Unique identifier.
+        setup_id (str): Setup identifier.
+        mode (str): SCALPER or SWING.
+        direction (str): LONG or SHORT.
+        entry_time (datetime): Entry timestamp.
+        entry_price (float): Entry price.
+        sl (float): Current stop-loss price.
+        tp1 (float): Target 1.
+        tp2 (float): Target 2.
+        tp3 (float): Target 3.
+        tp1_hit (bool): Whether TP1 has been reached.
+        tp2_hit (bool): Whether TP2 has been reached.
+        sl_moved_to_be (bool): Whether SL has been moved to breakeven.
+        sl_moved_to_tp1 (bool): Whether SL has been moved to TP1.
+    """
     trade_id:    str
     setup_id:    str
     mode:        str
@@ -110,24 +178,23 @@ class _ActiveTrade:
     tp3:         float
     tp1_hit:     bool = False
     tp2_hit:     bool = False
-    sl_moved_to_be: bool = False  # SL moved to breakeven after TP1
-    sl_moved_to_tp1: bool = False  # SL moved to TP1 after TP2
+    be_hit:      bool = False  # FIXED: New 1.0R Breakeven flag
+    sl_moved_to_be: bool = False
+    sl_moved_to_tp1: bool = False
 
 
 # ── Simulator ─────────────────────────────────────────────────────────────────
 
 class BacktestSimulator:
-    """
-    Replays historical candles tick-by-tick through the core PHANTOM
-    pipeline and tracks trade outcomes.
+    """Replays historical candles tick-by-tick through the core PHANTOM pipeline.
 
     The simulator shares the exact same detection logic as live mode
     by importing and calling core modules directly.
 
     Args:
-        instrument: InstrumentConfig for the security under test.
-        mode: Active mode — SCALPER | SWING | BOTH.
-        candles_by_tf: Dict of {tf: List[Candle]} from data_loader.
+        instrument (InstrumentConfig): Configuration for the security under test.
+        mode (str): Active mode (SCALPER, SWING, or BOTH).
+        candles_by_tf (Dict[str, List[Candle]]): historical data grouped by timeframe.
     """
 
     def __init__(
@@ -203,13 +270,13 @@ class BacktestSimulator:
     # ── Main replay entry point ────────────────────────────────────────────────
 
     def run(self) -> List[BacktestTrade]:
-        """
-        Run the full replay over all historical candles.
+        """Run the full replay over all historical candles.
+
         Uses the 1m candle stream as the master clock for SCALPER,
         and 5m for SWING-only mode.
 
         Returns:
-            List of BacktestTrade objects.
+            List[BacktestTrade]: All completed trades from the simulation.
         """
         # Determine master clock TF
         clock_tf = "1m" if "1m" in self.candles_by_tf else "5m"
@@ -248,9 +315,10 @@ class BacktestSimulator:
 
     # FIXED: BUG 2 — Pointer-based approach entirely replaces old O(n^2) loop
     def _sync_htf_buffers(self, current_ts: datetime) -> None:
-        """
-        Push the latest candle for each HTF into its buffer if the
-        candle's timestamp aligns with the current clock tick.
+        """Push latest HTF candles into buffers aligned with current clock.
+
+        Args:
+            current_ts (datetime): Current timestamp from the master clock.
         """
         for tf in self._htf_pointers:
             candles = self.candles_by_tf[tf]
@@ -263,9 +331,11 @@ class BacktestSimulator:
     # ── Pipeline per mode ─────────────────────────────────────────────────────
 
     def _run_pipeline(self, mode_name: str, clock_candle: Candle) -> None:
-        """
-        Run one iteration of the PHANTOM detection pipeline for a
-        given mode using the current state of all TF buffers.
+        """Execute one iteration of the PHANTOM detection pipeline.
+
+        Args:
+            mode_name (str): SCALPER or SWING mode.
+            clock_candle (Candle): The current candle from the master clock.
         """
         cfg = MODES[mode_name]
         htf_bias_tf = cfg.get("htf_bias_tf", cfg["bias_tf"])
@@ -285,15 +355,15 @@ class BacktestSimulator:
         state = self._state[mode_name]
 
         try:
-            # FIXED: Only run steps 2-5 when pattern_tf has a new candle close
+            # Enrich candles with swing tags + ATR (Always do this for current buffers)
+            enriched_pattern = self._enrich(pattern_buf, lookback=cfg.get("swing_lookback", 5))
+            enriched_bias    = self._enrich(bias_buf, lookback=cfg.get("swing_lookback", 5))
+            enriched_htf_bias = self._enrich(htf_bias_buf, lookback=cfg.get("swing_lookback", 5))
+
+            # FIXED: Only run steps 2-3 when pattern_tf has a new candle close
             new_pattern_candle = pattern_buf[-1].timestamp != state["last_pattern_ts"]
             
             if new_pattern_candle:
-                # 1. Enrich candles with swing tags + ATR
-                enriched_pattern = self._enrich(pattern_buf, lookback=cfg.get("swing_lookback", 5))
-                enriched_bias    = self._enrich(bias_buf, lookback=cfg.get("swing_lookback", 5))
-                enriched_htf_bias = self._enrich(htf_bias_buf, lookback=cfg.get("swing_lookback", 5))
-
                 # 2. Build/update liquidity map
                 tolerance = cfg.get("equal_level_tolerance", 0.05) / 100.0
                 liq_map = self._build_liq(enriched_pattern, tolerance=tolerance)
@@ -302,9 +372,6 @@ class BacktestSimulator:
                 # 3. Compute bias from HTF
                 bias_result = self._bias(enriched_bias)
                 bias = bias_result.get("bias")
-                
-                htf_bias_result = self._bias(enriched_htf_bias)
-                htf_bias = htf_bias_result.get("bias")
                 
                 # Log bias shift
                 if bias != state["last_bias"]:
@@ -315,12 +382,18 @@ class BacktestSimulator:
             else:
                 # Reuse data from last pattern candle
                 bias = state["last_bias"]
-                # We need to re-fetch htf_bias if we want it for validation later
-                # For simplicity in backtest, assume it hasn't changed if bias hasn't
-                htf_bias = bias 
+            
+            # HTF bias check 
+            htf_bias_result = self._bias(enriched_htf_bias)
+            htf_bias = htf_bias_result.get("bias")
 
-            if bias == "NEUTRAL":
-                return
+            # Check if we should enforce HTF alignment
+            if not cfg.get("ignore_htf_bias", False):
+                if bias == "NEUTRAL" or bias != htf_bias:
+                    return
+            else:
+                if bias == "NEUTRAL":
+                    return
 
             if new_pattern_candle:
                 # 4. Detect sweep on pattern TF
@@ -375,8 +448,9 @@ class BacktestSimulator:
                     state["pending_fvg"],
                     ENTRY_TYPE,
                     bias,
-                    cfg["sl_buffer_points"],
-                    state["pending_sweep"]
+                    cfg["sl_buffer_atr"], # Passing ATR mult but evaluator will use mode
+                    state["pending_sweep"],
+                    mode_name
                 )
 
                 # FIXED: Update FVG status AFTER checking entry, so we don't reject valid closes inside the FVG
@@ -393,13 +467,16 @@ class BacktestSimulator:
                         state["liquidity_map"]
                     )
                     if not targets:
+                        logger.warning(f"[{mode_name}] Setup INVALIDATED: Targets not resolved (RR < {cfg['min_rr']}). Entry: {entry_signal['entry_price']}, SL: {entry_signal['sl_price']}")
+                        state["pending_sweep"] = None
+                        state["pending_fvg"] = None
                         return
 
                     # 8. Validate full setup
                     setup = {
                         "mode": mode_name,
                         "bias": bias,
-                        "htf_bias": bias, # simplified sync for backtest
+                        "htf_bias": htf_bias, 
                         "sweep_data": state["pending_sweep"],
                         "fvg_data": state["pending_fvg"],
                         "entry_data": entry_signal,
@@ -418,9 +495,13 @@ class BacktestSimulator:
                         state["pending_sweep"] = None
                         state["pending_fvg"] = None
                     elif valid == "INVALID":
-                        logger.debug(f"[{mode_name}] Setup invalidated at entry zone (e.g. HTF conflict)")
+                        logger.warning(f"[{mode_name}] Setup INVALIDATED at entry. Reason: Validation failed (Targets/RR/Risk). Entry: {entry_signal['entry_price']}, SL: {entry_signal['sl_price']}")
                         state["pending_sweep"] = None
                         state["pending_fvg"] = None
+                else:
+                    # Debug why entry didn't trigger
+                    pass
+
 
         except Exception as e:
             # FIXED: BUG 3 — Replace debug with warning and include traceback
@@ -439,7 +520,15 @@ class BacktestSimulator:
         targets: dict,
         timestamp: datetime,
     ) -> None:
-        """Register a new open trade for tracking."""
+        """Register a new open trade for tracking.
+
+        Args:
+            mode_name (str): SCALPER or SWING.
+            bias (str): LONG or SHORT.
+            entry_signal (dict): Data from the entry engine.
+            targets (dict): Data from the target resolver.
+            timestamp (datetime): Timestamp of entry.
+        """
         setup_id = str(uuid.uuid4())[:8]
         trade = _ActiveTrade(
             trade_id=str(uuid.uuid4())[:12],
@@ -460,9 +549,12 @@ class BacktestSimulator:
         )
 
     def _check_open_trades(self, candle: Candle) -> None:
-        """
-        Check all open trades against the current candle for SL/TP hits.
+        """Check all open trades against the current candle for SL/TP hits.
+
         Applies partial TP SL trail logic.
+
+        Args:
+            candle (Candle): The current candle to check against.
         """
         closed_ids = []
 
@@ -499,6 +591,18 @@ class BacktestSimulator:
                         t.sl = t.tp1
                         t.sl_moved_to_tp1 = True
                         logger.debug(f"TP2 hit — SL moved to TP1 ({t.tp1})")
+
+            # --- 1.0R Breakeven check ---
+            if outcome is None and not t.be_hit:
+                risk = abs(t.entry_price - t.sl) if not t.sl_moved_to_be else 0 # original risk
+                if risk > 0:
+                    target_be = t.entry_price + risk if is_long else t.entry_price - risk
+                    if (is_long and candle.high >= target_be) or \
+                       (not is_long and candle.low <= target_be):
+                        t.be_hit = True
+                        t.sl = t.entry_price
+                        t.sl_moved_to_be = True
+                        logger.debug(f"1.0R hit — SL moved to breakeven ({t.entry_price})")
 
             # --- TP1 check ---
             if outcome is None:
@@ -540,7 +644,14 @@ class BacktestSimulator:
         exit_price: float,
         exit_time: datetime,
     ) -> None:
-        """Finalise a trade and record it in self.trades."""
+        """Finalize a trade, compute PnL, and record it.
+
+        Args:
+            t (_ActiveTrade): The active trade being closed.
+            outcome (str): Outcome type (e.g., TP1, TP3, SL).
+            exit_price (float): Final exit price.
+            exit_time (datetime): Final exit timestamp.
+        """
         if t.direction == "LONG":
             full_pnl = exit_price - t.entry_price
             tp1_pnl = t.tp1 - t.entry_price

@@ -188,15 +188,14 @@ def _save_to_supabase(
 # ── Engine ─────────────────────────────────────────────────────────────────────
 
 class BacktestEngine:
-    """
-    Top-level orchestrator for a PHANTOM backtest run.
+    """Top-level orchestrator for a PHANTOM backtest run.
 
     Args:
-        instrument: Resolved InstrumentConfig.
-        mode: Active mode — SCALPER | SWING | BOTH.
-        from_date: Backtest start date.
-        to_date: Backtest end date.
-        open_report: If True, open HTML report in browser after completion.
+        instrument (InstrumentConfig): Resolved instrument configuration.
+        mode (str): Active mode (SCALPER, SWING, or BOTH).
+        from_date (date): Backtest start date.
+        to_date (date): Backtest end date.
+        open_report (bool): Whether to auto-open the HTML report in the browser.
     """
 
     def __init__(
@@ -215,11 +214,10 @@ class BacktestEngine:
         self.run_id       = str(uuid.uuid4())
 
     def run(self) -> BacktestStats:
-        """
-        Execute the full backtest pipeline.
+        """Execute the full backtest pipeline.
 
         Returns:
-            BacktestStats with all computed metrics.
+            BacktestStats: Computed metrics for the entire run.
         """
         logger.info(
             f"[BACKTEST] Starting run {self.run_id} | "
@@ -257,6 +255,11 @@ class BacktestEngine:
             from_date=self.from_date,
             to_date=self.to_date,
         )
+
+        if trades:
+            print("\n  Trade Details:")
+            for t in trades:
+                print(f"    {t.entry_time.strftime('%Y-%m-%d %H:%M')} | {t.mode:7} | {t.direction:5} | {t.outcome:8} | PnL: {t.pnl_points:+.1f} | RR: {t.rr_achieved:.2f}")
 
         # Step 4 — Persist to Supabase
         _save_to_supabase(self.run_id, stats, trades)

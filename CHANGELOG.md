@@ -5,6 +5,20 @@ All notable changes to the PHANTOM project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-04-18
+
+### Added
+- **Backtesting Engine**: High-performance market replay system for historical strategy evaluation.
+- **Backtest Simulator**: Tick-by-tick (1-minute) simulation of price action through the same core engines used in live mode.
+- **Interactive Reports**: Self-contained HTML reports with Chart.js visualization, equity curves, drawdown analysis, and trade breakdown.
+- **Historical Data Loader**: Asynchronous data ingestion with local caching support for NSE and MCX instruments.
+- **Supabase Integration**: Persistence of backtest runs and individual trade metrics for longitudinal performance tracking.
+- **CLI Support**: New arguments for backtesting (`--backtest`, `--from`, `--to`, `--days`, `--report`).
+
+### Changed
+- **Dashboard Design**: Premium dark-mode styling for backtest reports with dynamic charts and sortable trade tables.
+- **Simulator Logic**: Fixed HTF synchronization bugs and added intraday auto-square-off logic.
+
 ## [1.0.0] - 2026-04-18
 
 ### Added

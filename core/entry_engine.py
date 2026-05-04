@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: str, sl_buffer: float, sweep_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: str, sl_buffer: float, sweep_data: Dict[str, Any], mode: str = "SCALPER") -> Optional[Dict[str, Any]]:
     """
     Evaluates current price action for a potential trade entry trigger.
 
@@ -18,8 +18,9 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
         entry_type (str): The type of entry trigger to watch for ("MITIGATION", 
             "REJECTION", "BOS").
         bias (str): The current market bias ("LONG" or "SHORT").
-        sl_buffer (float): Buffer to add to the swing high/low for the Stop Loss.
+        sl_buffer (float): Buffer to add to the swing high/low for the Stop Loss (deprecated in favor of ATR).
         sweep_data (Dict[str, Any]): Data regarding the preceding liquidity sweep.
+        mode (str): Trading mode ("SCALPER" or "SWING").
 
     Returns:
         Optional[Dict[str, Any]]: A dictionary containing entry details if triggered,
@@ -39,38 +40,48 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
     entry_price = None
     
     if entry_type == "MITIGATION":
-        # FIXED: BUG 6B — Tighten MITIGATION conditions to ensure price is INSIDE the zone 
-        # and not blown through. Entry at midpoint.
+        # FIXED: Enter at the edge of the FVG for higher fill rate
         if bias == "LONG":
-            if fvg.bottom <= latest.low <= fvg.top:
-                entry_price = fvg.midpoint
+            if latest.low <= fvg.top:
+                entry_price = fvg.top
         elif bias == "SHORT":
-            if fvg.bottom <= latest.high <= fvg.top:
-                entry_price = fvg.midpoint
+            if latest.high >= fvg.bottom:
+                entry_price = fvg.bottom
             
     elif entry_type == "REJECTION":
-        # FIXED: BUG 6B — Added zone check before evaluating rejection
         if bias == "LONG":
-            if fvg.bottom <= latest.low <= fvg.top and latest.close > fvg.bottom:
+            if latest.low <= fvg.top and latest.close > fvg.top:
                 entry_price = latest.close
         elif bias == "SHORT":
-            if fvg.bottom <= latest.high <= fvg.top and latest.close < fvg.top:
+            if latest.high >= fvg.bottom and latest.close < fvg.bottom:
                 entry_price = latest.close
             
     elif entry_type == "BOS":
-        # FIXED: BUG 6B — Added zone check before evaluating BOS
         if len(candles) >= 2:
             prev = candles[-2]
             if bias == "LONG":
-                if fvg.bottom <= latest.low <= fvg.top and latest.close > prev.high:
+                if latest.low <= fvg.top and latest.close > prev.high:
                     entry_price = latest.close
             elif bias == "SHORT":
-                if fvg.bottom <= latest.high <= fvg.top and latest.close < prev.low:
+                if latest.high >= fvg.bottom and latest.close < prev.low:
                     entry_price = latest.close
 
     if entry_price:
-        # Calculate SL based on sweep wick
-        sl_price = sweep_data["candle"].low - sl_buffer if bias == "LONG" else sweep_data["candle"].high + sl_buffer
+        # FIXED: Use ATR-based adaptive SL buffer
+        from config import MODES
+        cfg = MODES[mode] if 'mode' in locals() else MODES["SCALPER"] # fallback
+        atr_mult = cfg.get("sl_buffer_atr", 1.0)
+        
+        # We need the ATR from the pattern candle or latest candle
+        atr_val = latest.atr if (hasattr(latest, 'atr') and latest.atr) else 10.0
+        actual_sl_buffer = atr_val * atr_mult
+
+        # FIXED: Calculate SL based on the FVG boundary rather than the HTF sweep extreme 
+        # to drastically reduce risk distance on higher timeframes.
+        if bias == "LONG":
+            sl_price = fvg.bottom - actual_sl_buffer
+        else:
+            sl_price = fvg.top + actual_sl_buffer
         
         # Ensure SL is actually protective (not worse than entry)
         if bias == "LONG" and sl_price >= entry_price:
