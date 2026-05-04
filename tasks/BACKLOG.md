@@ -4,6 +4,7 @@
 *(Waiting for PM/human to add upcoming bugs)*
 
 ## Completed Tasks
+- **TASK-007 (Bug 7):** Supabase Fault Tolerance - Wrapped Supabase client initialization in a `try/except` block and added graceful early returns with error logging across all `data/store.py` methods.
 - **TASK-005 (Bug 5):** IFVG Validation - Added `direction` attribute to FVGZone tracking the displacement candle. Fixed entry engine to reject Inverted FVGs (IFVGs).
 - **TASK-004 (Bug 4):** Tick Collision - Added a `_is_ticking` guard to the scheduled jobs in `main.py` to prevent overlapping ticks.
 - **TASK-002 (Bug 2):** Session Setup Count - Fixed bug where `setup_count` was always 0 in the session-end alert by extracting it directly from the ModeController pipelines.

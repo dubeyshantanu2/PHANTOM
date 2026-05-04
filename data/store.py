@@ -10,10 +10,13 @@ logger = logging.getLogger(__name__)
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 
+supabase = None
 if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
+    try:
+        supabase: Client = create_client(supabase_url, supabase_key)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Supabase client: {e}. Database storage disabled.")
 else:
-    supabase = None
     logger.warning("Supabase credentials not found. Database storage disabled.")
 
 def save_candle(candle, tf: str, instrument_config):
@@ -25,7 +28,9 @@ def save_candle(candle, tf: str, instrument_config):
         tf (str): The timeframe of the candle.
         instrument_config (InstrumentConfig): Configuration of the instrument.
     """
-    if not supabase: return
+    if not supabase:
+        logger.error("Supabase client is not initialized. Cannot save candle.")
+        return
     try:
         data = {
             "security_id": instrument_config.security_id,
@@ -54,7 +59,9 @@ def save_setup(setup_dict: dict):
         Optional[int]: The database ID of the newly created record, or None 
             if insertion failed.
     """
-    if not supabase: return None
+    if not supabase:
+        logger.error("Supabase client is not initialized. Cannot save setup.")
+        return None
     try:
         res = supabase.table("phantom_setups").insert(setup_dict).execute()
         if res.data:
@@ -72,7 +79,10 @@ def update_setup_state(setup_id: int, state: str, outcome: str = None):
         state (str): The new state to transition to.
         outcome (str, optional): The eventual result of the trade (e.g., TP1 hit).
     """
-    if not supabase or not setup_id: return
+    if not supabase:
+        logger.error("Supabase client is not initialized. Cannot update setup.")
+        return
+    if not setup_id: return
     try:
         update_data = {"state": state}
         if outcome:
@@ -91,7 +101,9 @@ class StoreManager:
 
     def save_backtest_run(self, run_id: str, stats: Any):
         """Save summary of a backtest run."""
-        if not self.supabase: return
+        if not self.supabase:
+            logger.error("Supabase client is not initialized. Cannot save backtest run.")
+            return
         data = {
             "run_id": run_id,
             "symbol": stats.symbol,
@@ -108,12 +120,16 @@ class StoreManager:
 
     def save_backtest_trades_bulk(self, trades_batch: list):
         """Bulk save backtest individual trades."""
-        if not self.supabase: return
+        if not self.supabase:
+            logger.error("Supabase client is not initialized. Cannot save backtest trades.")
+            return
         self.supabase.table("backtest_trades").insert(trades_batch).execute()
 
     def save_candles_bulk(self, candles: list, tf: str, instrument: Any):
         """Save a batch of candles."""
-        if not self.supabase: return
+        if not self.supabase:
+            logger.error("Supabase client is not initialized. Cannot save bulk candles.")
+            return
         data = []
         for c in candles:
             data.append({
