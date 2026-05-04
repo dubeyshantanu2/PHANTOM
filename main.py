@@ -344,15 +344,10 @@ def main() -> None:
     args = parse_args()
 
     # Resolve security ID
-    security_id = args.security_id if args.security_id is not None else DEFAULT_SECURITY_ID
+    security_id = args.id
 
     # Resolve mode
-    if args.SCALPER:
-        mode = "SCALPER"
-    elif args.SWING:
-        mode = "SWING"
-    else:
-        mode = "BOTH"  # default, also covers --BOTH
+    mode = args.mode
 
     # Resolve instrument (may prompt user if unknown)
     instrument = resolve_instrument(security_id)

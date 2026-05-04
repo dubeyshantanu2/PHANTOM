@@ -107,12 +107,12 @@ python main.py
 
 Run for a specific security (e.g., BANKNIFTY ID: 15):
 ```bash
-python main.py --15
+python main.py --id 15
 ```
 
 Override active mode to Swing only:
 ```bash
-python main.py --15 --SWING
+python main.py --id 15 --mode SWING
 ```
 
 ### 📊 Backtesting
@@ -124,12 +124,12 @@ python main.py --backtest --report
 
 Run backtest for a specific range and instrument:
 ```bash
-python main.py --backtest --15 --from 2024-01-01 --to 2024-03-31 --report
+python main.py --backtest --id 15 --from 2024-01-01 --to 2024-03-31 --report
 ```
 
 Run backtest for the last 90 days in Scalper mode:
 ```bash
-python main.py --backtest --SCALPER --days 90 --report
+python main.py --backtest --mode SCALPER --days 90 --report
 ```
 
 ---
