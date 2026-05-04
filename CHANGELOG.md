@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **IFVG Validation**: Added a `direction` attribute (`BULL`/`BEAR`) to `FVGZone` tracking the displacement candle. Fixed entry engine to reject Inverted FVGs (IFVGs) that do not align with the current HTF bias.
 - **Tick Collision**: Added a `_is_ticking` guard to the scheduled jobs in `main.py` to prevent concurrent execution of pipeline ticks across different timeframes if one tick overlaps into the schedule of another.
 - **Session Setup Count**: Fixed a bug where `setup_count` was always 0 in the session-end alert by summing the setups directly from the `ModeController` pipelines instead of calling the non-existent `get_setup_count()` method.
 - **CLI Parsing**: Replaced custom `sys.argv` parsing with standard `argparse`. Added explicit `--id` and `--mode` arguments to fix the broken `--<id>` syntax.

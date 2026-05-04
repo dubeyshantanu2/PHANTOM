@@ -10,6 +10,7 @@ class FVGZone:
 
     Attributes:
         type (str): Either "bullish" (undervalued) or "bearish" (overvalued).
+        direction (str): "BULL" if displacement candle close > open, else "BEAR".
         top (float): The upper boundary price of the gap.
         bottom (float): The lower boundary price of the gap.
         midpoint (float): The 50% equilibrium level of the FVG.
@@ -19,6 +20,7 @@ class FVGZone:
             the force of the move that created the gap.
     """
     type: str # "bullish" | "bearish"
+    direction: str # "BULL" | "BEAR"
     top: float
     bottom: float
     midpoint: float
@@ -73,8 +75,10 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
             # Bullish FVG
             mid_body = abs(c1.close - c1.open)
             if mid_body > displacement_atr * c1.atr:
+                direction = "BULL" if c1.close > c1.open else "BEAR"
                 fvg = FVGZone(
                     type="bullish",
+                    direction=direction,
                     top=c2.low,
                     bottom=c0.high,
                     midpoint=(c2.low + c0.high) / 2,
@@ -91,8 +95,10 @@ def detect_fvg(candles: List[Candle], sweep_data: Dict[str, Any], bias: str, dis
             # Bearish FVG
             mid_body = abs(c1.close - c1.open)
             if mid_body > displacement_atr * c1.atr:
+                direction = "BULL" if c1.close > c1.open else "BEAR"
                 fvg = FVGZone(
                     type="bearish",
+                    direction=direction,
                     top=c0.low,
                     bottom=c2.high,
                     midpoint=(c0.low + c2.high) / 2,

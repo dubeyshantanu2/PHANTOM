@@ -35,10 +35,17 @@ def evaluate_entry(candles: List[Candle], fvg: FVGZone, entry_type: str, bias: s
     # FIXED: BUG 6A — Ensure entries only happen into FRESH FVGs
     if fvg.status != "FRESH":
         return None
-        
+
+    # FIXED: BUG 5 — IFVG validation
+    if bias == "LONG" and fvg.direction != "BULL":
+        logger.info(f"IFVG_REJECTED: Bias is LONG but FVG direction is {fvg.direction}")
+        return None
+    if bias == "SHORT" and fvg.direction != "BEAR":
+        logger.info(f"IFVG_REJECTED: Bias is SHORT but FVG direction is {fvg.direction}")
+        return None
+
     latest = candles[-1]
-    entry_price = None
-    
+    entry_price = None    
     if entry_type == "MITIGATION":
         # FIXED: Enter at the edge of the FVG for higher fill rate
         if bias == "LONG":
